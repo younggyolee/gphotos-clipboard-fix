@@ -1,6 +1,6 @@
 /**
  * Google Photos Clipboard Fix - Background Service Worker
- * 
+ *
  * Fetches images on behalf of content script (bypasses CORS).
  * Filter by "GPCF BG" in the Service Worker console.
  */

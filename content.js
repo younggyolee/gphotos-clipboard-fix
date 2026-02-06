@@ -1,9 +1,9 @@
 /**
- * Google Photos Clipboard Fix - Content Script v1.1
- * 
+ * Google Photos Clipboard Fix - Content Script v2.0
+ *
  * Key fixes:
  * - Pre-fetches image blob on click (instant clipboard write on Cmd+C)
- * - Handles "Document not focused" for context menu by refocusing first
+ * - Context menu copies routed through offscreen document (no focus issues)
  * - Grabs pixels from already-loaded on-page images (no CORS issues)
  *
  * Filter console by "GPCF" to see all logs.
@@ -15,7 +15,7 @@
   const warn = (...a) => console.warn(P, ...a);
   const err = (...a) => console.error(P, ...a);
 
-  log('Content script v1.1 loaded on', window.location.href);
+  log('Content script v2.0 loaded on', window.location.href);
 
   // --- Cache ---
   let cachedBlob = null;
@@ -211,10 +211,10 @@
     try {
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       log('✓ CLIPBOARD WRITE SUCCESS');
-      return true;
+      return { ok: true };
     } catch (e) {
       err('✗ CLIPBOARD WRITE FAILED:', e.name, e.message);
-      return false;
+      return { ok: false, error: `${e.name}: ${e.message}` };
     }
   }
 
@@ -233,10 +233,10 @@
       });
       await navigator.clipboard.write([item]);
       log('✓ CLIPBOARD WRITE (Promise) SUCCESS');
-      return true;
+      return { ok: true };
     } catch (e) {
       err('✗ CLIPBOARD WRITE (Promise) FAILED:', e.name, e.message);
-      return false;
+      return { ok: false, error: `${e.name}: ${e.message}` };
     }
   }
 
@@ -307,8 +307,8 @@
     // Try cached blob first (instant, within user gesture)
     if (cachedBlob) {
       log('Using cached blob');
-      const ok = await writeToClipboard(cachedBlob);
-      showToast(ok ? '✓ Image copied!' : '✗ Clipboard failed — see console', !ok);
+      const result = await writeToClipboard(cachedBlob);
+      showToast(result.ok ? '✓ Image copied!' : `✗ ${result.error}`, !result.ok);
       return;
     }
 
@@ -322,8 +322,8 @@
     }
 
     showToast('⏳ Fetching image…');
-    const ok = await writeWithPromise(imgEl, url);
-    showToast(ok ? '✓ Image copied!' : '✗ Failed — try clicking the photo first', !ok);
+    const result = await writeWithPromise(imgEl, url);
+    showToast(result.ok ? '✓ Image copied!' : `✗ ${result.error}`, !result.ok);
   }, true);
 
   // --- Context menu handler ---
@@ -334,15 +334,31 @@
     log('======= Context Menu Copy =======');
     log('Document focused:', document.hasFocus());
 
-    // The context menu just closed — we need to wait a moment
-    // for focus to return to the page before writing to clipboard.
-    setTimeout(async () => {
-      window.focus();
-      log('After focus(), focused:', document.hasFocus());
-
-      // Wait another tick for focus to settle
-      await new Promise(r => setTimeout(r, 150));
-      log('After settle, focused:', document.hasFocus());
+    (async () => {
+      // Wait for document to regain focus after context menu closes.
+      // Poll every 50ms instead of a fixed delay — this is reliable
+      // regardless of how long the context menu takes to dismiss.
+      if (!document.hasFocus()) {
+        log('  Waiting for focus...');
+        const focused = await new Promise((resolve) => {
+          const start = Date.now();
+          const check = setInterval(() => {
+            if (document.hasFocus()) {
+              clearInterval(check);
+              resolve(true);
+            } else if (Date.now() - start > 2000) {
+              clearInterval(check);
+              resolve(false);
+            }
+          }, 50);
+        });
+        log('  Focus wait result:', focused, 'hasFocus:', document.hasFocus());
+        if (!focused) {
+          showToast('✗ Page lost focus — try refreshing the page and retry', true);
+          sendResponse({ ok: false });
+          return;
+        }
+      }
 
       try {
         let blob = cachedBlob;
@@ -354,15 +370,15 @@
           blob = await ensurePng(blob);
         }
 
-        const ok = await writeToClipboard(blob);
-        showToast(ok ? '✓ Image copied!' : '✗ Clipboard write failed', !ok);
-        sendResponse({ ok });
+        const result = await writeToClipboard(blob);
+        showToast(result.ok ? '✓ Image copied!' : `✗ ${result.error}`, !result.ok);
+        sendResponse({ ok: result.ok });
       } catch (ex) {
         err('Context menu copy failed:', ex);
-        showToast('✗ ' + ex.message, true);
+        showToast(`✗ ${ex.message}`, true);
         sendResponse({ ok: false });
       }
-    }, 200); // Wait for context menu to close and page to regain focus
+    })();
 
     return true;
   });

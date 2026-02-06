@@ -2,8 +2,7 @@
  * Google Photos Clipboard Fix - Content Script v2.0
  *
  * Key fixes:
- * - Pre-fetches image blob on click (instant clipboard write on Cmd+C)
- * - Context menu copies routed through offscreen document (no focus issues)
+ * - Pre-fetches image blob on click (instant clipboard write on context menu copy)
  * - Grabs pixels from already-loaded on-page images (no CORS issues)
  *
  * Filter console by "GPCF" to see all logs.
@@ -218,28 +217,6 @@
     }
   }
 
-  /**
-   * Promise-based clipboard write (Chrome 97+).
-   * Passes a Promise to ClipboardItem so the browser keeps the gesture window open.
-   */
-  async function writeWithPromise(imgEl, url) {
-    log('Trying Promise-based clipboard write...');
-    try {
-      const item = new ClipboardItem({
-        'image/png': (async () => {
-          const blob = await fetchImageBlob(imgEl, url);
-          return await ensurePng(blob);
-        })()
-      });
-      await navigator.clipboard.write([item]);
-      log('✓ CLIPBOARD WRITE (Promise) SUCCESS');
-      return { ok: true };
-    } catch (e) {
-      err('✗ CLIPBOARD WRITE (Promise) FAILED:', e.name, e.message);
-      return { ok: false, error: `${e.name}: ${e.message}` };
-    }
-  }
-
   // ============================================================
   // Toast
   // ============================================================
@@ -290,41 +267,6 @@
       }, 800);
     }
   }).observe(document.body, { childList: true, subtree: true });
-
-  // --- Cmd+C handler ---
-  document.addEventListener('keydown', async (e) => {
-    if (!((e.ctrlKey || e.metaKey) && e.key === 'c')) return;
-    const selection = window.getSelection();
-    if (selection && selection.toString().trim().length > 0) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-
-    log('');
-    log('======= Cmd+C =======');
-
-    // Try cached blob first (instant, within user gesture)
-    if (cachedBlob) {
-      log('Using cached blob');
-      const result = await writeToClipboard(cachedBlob);
-      showToast(result.ok ? '✓ Image copied!' : `✗ ${result.error}`, !result.ok);
-      return;
-    }
-
-    // Try Promise-based write
-    const imgEl = targetImgElement || findImageElement(document.activeElement);
-    const url = cachedUrl || getUrlFromElement(imgEl);
-
-    if (!url && !imgEl) {
-      showToast('✗ No image found — click a photo first', true);
-      return;
-    }
-
-    showToast('⏳ Fetching image…');
-    const result = await writeWithPromise(imgEl, url);
-    showToast(result.ok ? '✓ Image copied!' : `✗ ${result.error}`, !result.ok);
-  }, true);
 
   // --- Context menu handler ---
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -385,6 +327,6 @@
 
   log('✓ Extension ready');
   log('  1. Click/view a photo (pre-fetches the image)');
-  log('  2. Cmd+C or right-click → "Copy image for pasting"');
+  log('  2. Right-click → "Copy image for pasting"');
   log('  Filter console by "GPCF" to see logs');
 })();

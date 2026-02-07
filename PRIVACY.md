@@ -44,4 +44,4 @@ If this policy is updated, the changes will be posted here with a revised date.
 
 ## Contact
 
-If you have questions about this privacy policy, please open an issue at: https://github.com/nicekid1/GPhotos-Clipboard-Fix/issues
+If you have questions about this privacy policy, please open an issue at: https://github.com/younggyolee/gphotos-clipboard-fix/issues

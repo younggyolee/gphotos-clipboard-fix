@@ -2,6 +2,8 @@
 
 A Chrome extension that fixes image copying from Google Photos. When you copy images from Google Photos, they often paste as broken references in blog editors and other apps. This extension adds a right-click **"Copy image for pasting"** option that copies the actual image data (PNG) to your clipboard, so it pastes correctly everywhere.
 
+<a href="https://www.buymeacoffee.com/younggyolee" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
 ## The Problem
 
 Google Photos doesn't put real image data on the clipboard when you copy. Instead, it copies a reference or thumbnail that many apps can't use. This means pasting into blog editors, email composers, or design tools often results in broken images or nothing at all.

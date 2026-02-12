@@ -17,6 +17,10 @@ Google Photos doesn't put real image data on the clipboard when you copy. Instea
 
 ![Context menu screenshot](screenshot1.png)
 
+<img width="1280" height="800" alt="image1" src="https://github.com/user-attachments/assets/931682f9-348b-47c3-be72-cf30569b3fd1" />
+<img width="1280" height="800" alt="image2" src="https://github.com/user-attachments/assets/6378d474-0f39-46f7-bcab-817d507f8949" />
+
+
 The extension uses multiple strategies to grab the image reliably:
 - **Method A:** Reads pixels directly from the on-page image element (fastest, most reliable)
 - **Method B:** Fetches the full-resolution image via the background service worker (bypasses CORS)
